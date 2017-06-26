@@ -40,9 +40,18 @@ import sys
 import re
 
 
+def p(l, str, *arg, **argv):
+    global debug
+    if debug >= l:
+        print(' ', str, *arg, **argv)
+
+
+debug = 2
+lineLimit = -1000000
+
 mboxName = sys.argv[1]
 
-print('mbox {}'.format(mboxName))
+p(1, 'mbox {}'.format(mboxName))
 
 mailDir = '{}.__eml__'.format(sys.argv[1])
 
@@ -55,39 +64,45 @@ lCandidate = []
 i = 0
 iLin = 0
 try:
-    with open(mboxName, 'r') as mbox:
+    with open(mboxName, 'r', encoding="latin-1") as mbox:
         for line in mbox:
             iLin += 1
             test = line.strip('\n')
+            p(9, 'iLin = {}'.format(iLin))
+            p(9, 'test = {}'.format(test))
+
+            if lineLimit > 0 and iLin > lineLimit:
+                sys.exit(99)
 
             if bCandidate:
-                print(test[:20], end=' | ')
-                if re.search('^[^ ]+: [^ ].*$', test) \
+                p(8, test[:20], end=' | ')
+                if re.search('^[^ ]+: .*$', test) \
                    or re.search('^\s+[^ ].*$', test):
                     cabLines += 1
+                    p(9, 'cabLines = {}'.format(cabLines))
                     lCandidate.append(line)
                     reMsgId = re.search('^Message-ID: <(.*)>', test)
                     if reMsgId is not None:
                         msgId = reMsgId.group(1)
-                        print('msgId {}'.format(msgId))
+                        p(8, 'msgId {}'.format(msgId))
 
                 else:
-                    print('')
-                    print(test[:20])
-                    print('{} cab lines'.format(cabLines))
+                    p(8, '')
+                    p(8, test[:20])
+                    p(8, '{} cab lines'.format(cabLines))
                     if re.search('^ *$', test) and cabLines > 0:
-                        print('cab valido')
+                        p(8, 'cab valido')
                         bNewMail = True
                     else:
-                        print('cab invalido')
+                        p(8, 'cab invalido')
                     bCandidate = False
                     cabLines = 0
 
             else:
+                p(9, 'not bCandidate')
                 if re.search('^From $', test) \
                    or re.search('^From - ... ... .. ..:..:.. ....$', test):
-                    # print('ini with from')
-                    print('Candidate!!!', iLin, test)
+                    p(8, 'Candidate!!!', iLin, test)
                     bCandidate = True
                     lCandidate.append(line)
 
@@ -103,10 +118,14 @@ try:
 
                     # mailName = 'mail{:06}-{}.eml'.format(i,    msgId)
                     mailName = '{}.eml'.format(msgId)
-                    print(mailName)
-                    mailName = os.path.join(mailDir, mailName)
-
-                    eml = open(mailName, 'w')
+                    transCharacters = {'/': '_pathbar_'}
+                    mailFileName = "".join(transCharacters[c]
+                                           if c in transCharacters
+                                           else c
+                                           for c in mailName).rstrip()
+                    p(2, mailFileName)
+                    mailFileName = os.path.join(mailDir, mailFileName)
+                    eml = open(mailFileName, 'w')
 
                 if len(lCandidate) > 0:
                     del lCandidate[0]
@@ -114,7 +133,6 @@ try:
                         eml.write(candLine)
                     lCandidate = []
                 if eml is not None:
-
                     eml.write(line)
 finally:
     if eml is not None:
