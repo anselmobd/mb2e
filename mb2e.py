@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf8 -*-
 
-# Version 0.1.2 2017-06-27 (C) Anselmo Blanco Dominguez (Oxigenai)
+# Version 0.1.3 2017-06-27 (C) Anselmo Blanco Dominguez (Oxigenai)
 #
 # Tested in only one environment, with this característics:
 # - Ubuntu 16.04
@@ -36,7 +36,11 @@
 # tell, Thuderbird himself takes care of this, but I think it's best not to
 # assume that everything is ok.
 #
+# Version 0.1.3 2017-06-27
 # History
+# . Clean Mozilla tags
+# . remove old code
+#
 # Version 0.1.2 2017-06-27
 # . Rewrite using class
 # . Bug in detecting message id
@@ -59,6 +63,7 @@ import re
 
 
 debug = 2
+cleanMozilla = True
 
 
 def p(l, str, *arg, **argv):
@@ -109,7 +114,7 @@ class Mbox():
             if self.msgId:
                 name = self.msgId
             else:
-                name = 'line_{}'.format(nline)
+                name = 'line_{}'.format(self.nLine)
             mailName = '{}.eml'.format(name)
             transCharacters = {'/': '_pathbar_'}
             mailFileName = "".join(transCharacters[c]
@@ -144,6 +149,14 @@ class Mbox():
                 self.nLine, line[:30],
                 '...' if line[30:] else ''))
             self.processLine()
+
+    def headerLine(self):
+        line = self.cleanLine()
+        if cleanMozilla and (
+                re.search('^X-Mozilla-Status2?: .*$', line) or
+                re.search('^X-Mozilla-Keys: .*$', line)):
+            return
+        self.header.append(self.line)
 
     def processLine(self):
 
@@ -189,14 +202,14 @@ class Mbox():
             if isIniHeader():
                 p(4, 'processLine isIniHeader')
                 self.setState(self.HEADERCANDIDATE)
-                header = [self.line]
+                # self.headerLine()
 
         elif self.state == self.HEADERCANDIDATE:
             p(4, 'processLine state == HEADERCANDIDATE')
             if isInsideHeader():
                 p(4, 'processLine isInsideHeader')
                 ifGetMessageId()
-                self.header.append(self.line)
+                self.headerLine()
             else:
                 p(4, 'processLine not isInsideHeader')
                 if isEndHeader() and len(self.header) > 1:
@@ -242,101 +255,11 @@ class Mbox():
             self.header = []
 
 
-lineLimit = -100000
+if __name__ == '__main__':
+    mboxName = sys.argv[1]
 
-mboxName = sys.argv[1]
+    mbox = Mbox(mboxName)
+    # mbox.nLineLimit = 0
+    # p(1, 'mbox.nLineLimit = {}'.format(mbox.nLineLimit))
 
-mbox = Mbox(mboxName)
-mbox.nLineLimit = lineLimit
-p(1, 'mbox.nLineLimit = {}'.format(mbox.nLineLimit))
-mbox.extract()
-del mbox
-
-# sys.exit(99)
-
-p(1, 'mbox {}'.format(mboxName))
-
-mailDir = '{}.__eml__'.format(sys.argv[1])
-
-eml = None
-msgId = ''
-bNewMail = False
-bCandidate = False
-cabLines = 0
-lCandidate = []
-i = 0
-iLin = 0
-try:
-    with open(mboxName, 'r', encoding="latin-1") as mbox:
-        for line in mbox:
-            iLin += 1
-            test = line.strip('\n')
-            p(9, 'iLin = {}'.format(iLin))
-            p(9, 'test = {}'.format(test))
-
-            if lineLimit > 0 and iLin > lineLimit:
-                # sys.exit(99)
-                break
-
-            if bCandidate:
-                p(8, test[:20], end=' | ')
-                if re.search('^[^ ]+: .*$', test) \
-                   or re.search('^\s+[^ ].*$', test):
-                    cabLines += 1
-                    p(9, 'cabLines = {}'.format(cabLines))
-                    lCandidate.append(line)
-                    reMsgId = re.search('^Message-I[dD]: <(.*)>', test)
-                    if reMsgId is not None:
-                        msgId = reMsgId.group(1)
-                        p(8, 'msgId {}'.format(msgId))
-
-                else:
-                    p(8, '')
-                    p(8, test[:20])
-                    p(8, '{} cab lines'.format(cabLines))
-                    if re.search('^ *$', test) and cabLines > 0:
-                        p(8, 'cab valido')
-                        bNewMail = True
-                    else:
-                        p(8, 'cab invalido')
-                    bCandidate = False
-                    cabLines = 0
-
-            else:
-                p(9, 'not bCandidate')
-                if re.search('^From $', test) \
-                   or re.search('^From - ... ... .. ..:..:.. ....$', test):
-                    p(8, 'Candidate!!!', iLin, test)
-                    bCandidate = True
-                    lCandidate.append(line)
-
-            if not bCandidate:
-                if bNewMail:
-                    bNewMail = False
-                    if eml is not None:
-                        eml.close()
-                    i += 1
-
-                    if not os.path.isdir(mailDir):
-                        os.mkdir(mailDir)
-
-                    mailName = '{}.eml'.format(msgId)
-                    transCharacters = {'/': '_pathbar_'}
-                    mailFileName = "".join(transCharacters[c]
-                                           if c in transCharacters
-                                           else c
-                                           for c in mailName).rstrip()
-                    p(2, mailFileName)
-                    mailFileName = os.path.join(mailDir, mailFileName)
-                    eml = open(mailFileName, 'w')
-
-                if len(lCandidate) > 0:
-                    del lCandidate[0]
-                    for candLine in lCandidate:
-                        eml.write(candLine)
-                    lCandidate = []
-                if eml is not None:
-                    eml.write(line)
-finally:
-    if eml is not None:
-        eml.close()
+    mbox.extract()
