@@ -120,7 +120,8 @@ class Mbox():
                 name = 'line_{}'.format(self.nLine)
             mailName = '{}.eml'.format(name)
             transCharacters = {'/': '_pathbar_',
-                               '$': '_dolar_'}
+                               '$': '_dolar_',
+                               '-': '_'}
             mailFileName = "".join(transCharacters[c]
                                    if c in transCharacters
                                    else c
