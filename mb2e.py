@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf8 -*-
 
-# Version 0.1.3 2017-06-27 (C) Anselmo Blanco Dominguez (Oxigenai)
+# Version 0.1.4 2017-06-27 (C) Anselmo Blanco Dominguez (Oxigenai)
 #
 # Tested in only one environment, with this característics:
 # - Ubuntu 16.04
@@ -36,8 +36,11 @@
 # tell, Thuderbird himself takes care of this, but I think it's best not to
 # assume that everything is ok.
 #
-# Version 0.1.3 2017-06-27
 # History
+# Version 0.1.4 2017-06-27
+# . No dolar in eml name
+#
+# Version 0.1.3 2017-06-27
 # . Clean Mozilla tags
 # . remove old code
 #
@@ -116,7 +119,8 @@ class Mbox():
             else:
                 name = 'line_{}'.format(self.nLine)
             mailName = '{}.eml'.format(name)
-            transCharacters = {'/': '_pathbar_'}
+            transCharacters = {'/': '_pathbar_',
+                               '$': '_dolar_'}
             mailFileName = "".join(transCharacters[c]
                                    if c in transCharacters
                                    else c
@@ -259,7 +263,7 @@ if __name__ == '__main__':
     mboxName = sys.argv[1]
 
     mbox = Mbox(mboxName)
-    # mbox.nLineLimit = 0
+    # mbox.nLineLimit = 10000000
     # p(1, 'mbox.nLineLimit = {}'.format(mbox.nLineLimit))
 
     mbox.extract()
