@@ -21,7 +21,6 @@ class Mbox():
     vOut = None
     state = NONE
     nLine = 0
-    nLineLimit = 0
     header = []
     msgId = ''
     line = ''
@@ -35,6 +34,7 @@ class Mbox():
         self.vOut.prnt('->... __init__', 4)
 
         self.openMbox()
+        self.extract()
 
     def __del__(self):
         if self.vOut is not None:
@@ -95,7 +95,7 @@ class Mbox():
         self.vOut.prnt('->extract', 4)
         for self.line in self.mbox:
             self.nLine += 1
-            if self.nLineLimit > 0 and self.nLine > self.nLineLimit:
+            if self.args.lineLimit > 0 and self.nLine > self.args.lineLimit:
                 self.setState(self.END)
                 break
             line = self.cleanLine()
@@ -212,9 +212,9 @@ class Mbox():
 
     def parseArgs(self):
         parser = argparse.ArgumentParser(
-            description=_('Extract EML files from MBox to subdirectory'),
-            epilog="# Version 0.1.5 2017-06-28 "
-                   "(c) Anselmo Blanco Dominguez (Tussor & Oxigenai)",
+            description=_('Extract EML files from MBox to subdirectory\n'
+                          'version 0.1.6 2017-06-28'),
+            epilog="(c) Anselmo Blanco Dominguez (Tussor & Oxigenai)",
             formatter_class=argparse.RawTextHelpFormatter)
         parser.add_argument(
             "mboxFile",
@@ -223,6 +223,11 @@ class Mbox():
             "-c", "--cleanMozilla",
             action="store_true",
             help='clean Mozilla tags in EML')
+        parser.add_argument(
+            "-l", "--lineLimit",
+            type=int,
+            default=0,
+            help='number of lines of mboxFile to be processed (if > 0)')
         parser.add_argument(
             "-v", "--verbosity", action="count", default=0,
             help="increase output verbosity")
@@ -234,7 +239,3 @@ if __name__ == '__main__':
     mb2eGT.install()
 
     mbox = Mbox()
-    # mbox.nLineLimit = 10000000
-    # self.vOut.prnt('mbox.nLineLimit = {}'.format(mbox.nLineLimit), 1)
-
-    mbox.extract()

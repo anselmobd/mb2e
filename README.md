@@ -2,7 +2,7 @@
 
 Create EML files from mails in a Thunderbird MBOX file in a subdirectory.
 
-Version 0.1.5 2017-06-28 (C) Anselmo Blanco Dominguez (Oxigenai)
+Version 0.1.6 2017-06-28 (C) Anselmo Blanco Dominguez (Oxigenai)
 
 Tested in only one environment, with this característics:
 - Ubuntu 16.04
@@ -38,6 +38,10 @@ tell, Thuderbird himself takes care of this, but I think it's best not to
 assume that everything is ok.
 
 -- History
+
+Version 0.1.6 2017-06-28
+. More parameter: lineLimit
+. All inside the class
 
 Version 0.1.5 2017-06-28
 . Starting gettext
