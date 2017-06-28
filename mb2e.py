@@ -61,12 +61,14 @@
 
 import os
 import sys
-
 import re
+
+import gettext
+
+from oxy.arg import parse as argparse
 
 
 debug = 2
-cleanMozilla = True
 
 
 def p(l, str, *arg, **argv):
@@ -92,21 +94,25 @@ class Mbox():
     mbox = None
     eml = None
 
-    def __init__(self, mboxName):
+    def __init__(self):
+        self.parseArgs()
         p(3, '>__init__')
         try:
-            self.mbox = open(mboxName, 'r', encoding="latin-1")
+            self.mbox = open(self.args.mboxFile, 'r', encoding="latin-1")
         except Exception as e:
-            p(0, 'Can not open mbox file to read "{}"'.format(mboxName))
-        p(2, 'mbox file = {}'.format(mboxName))
+            p(0, 'Can not open mbox file to read "{}"'.format(
+                self.args.mboxFile))
+            sys.exit(21)
+        p(2, 'mbox file = {}'.format(self.args.mboxFile))
         p(2, 'mbox file opened')
-        self.mailDir = '{}.__mb2e__'.format(mboxName)
+        self.mailDir = '{}.__mb2e__'.format(self.args.mboxFile)
         p(2, 'mailDir = {}'.format(self.mailDir))
         self.setState(self.READ)
 
     def __del__(self):
         p(3, '>__del__')
-        self.mbox.close()
+        if self.mbox:
+            self.mbox.close()
 
     def initEml(self):
         p(3, '>initEml')
@@ -132,7 +138,8 @@ class Mbox():
             try:
                 self.eml = open(mailFileName, 'w')
             except Exception as e:
-                p(0, 'Can not open mail file to write "{}"'.format(mboxName))
+                p(0, 'Can not open mail file to write "{}"'.format(
+                    mailFileName))
 
     def endEml(self):
         p(3, '>endEml')
@@ -157,7 +164,7 @@ class Mbox():
 
     def headerLine(self):
         line = self.cleanLine()
-        if cleanMozilla and (
+        if self.args.cleanMozilla and (
                 re.search('^X-Mozilla-Status2?: .*$', line) or
                 re.search('^X-Mozilla-Keys: .*$', line)):
             return
@@ -259,11 +266,29 @@ class Mbox():
             p(4, 'setState - empty self.header')
             self.header = []
 
+    def parseArgs(self):
+        parser = argparse.ArgumentParser(
+            description=_('Extract EML files from MBox to subdirectory'),
+            epilog="(c) Tussor & Oxigenai",
+            formatter_class=argparse.RawTextHelpFormatter)
+        parser.add_argument(
+            "mboxFile",
+            help='name of the MBox file')
+        parser.add_argument(
+            "-c", "--cleanMozilla",
+            action="store_true",
+            help='clean Mozilla tags in EML')
+        parser.add_argument(
+            "-v", "--verbosity", action="count", default=0,
+            help="increase output verbosity")
+        self.args = parser.parse_args()
+
 
 if __name__ == '__main__':
-    mboxName = sys.argv[1]
+    mb2eGT = gettext.translation('mb2e', 'po', fallback=True)
+    mb2eGT.install()
 
-    mbox = Mbox(mboxName)
+    mbox = Mbox()
     # mbox.nLineLimit = 10000000
     # p(1, 'mbox.nLineLimit = {}'.format(mbox.nLineLimit))
 
