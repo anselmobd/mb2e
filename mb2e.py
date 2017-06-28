@@ -1,64 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf8 -*-
 
-# Version 0.1.4 2017-06-27 (C) Anselmo Blanco Dominguez (Oxigenai)
-#
-# Tested in only one environment, with this característics:
-# - Ubuntu 16.04
-# - Python 3.5.2
-# - MBOX files from Thunderbird 45.8.0
-# - Thunderbird, files and script in the same machine
-# - before and after running "Condense Folder" routine from Thunderbird
-#
-# Usage: mb2e.py path/to/mbox
-#
-# Funcionality
-# The script:
-# - Create a directorie with the name of the MBOX file appended with '.__eml__'
-# - For each mail encountred in the file the script get the Message-ID
-# - Each mail is saved in the created directorie with the name "Message-ID".eml
-#
-# To do:
-# - clean and enhance the code quality
-# - test in other environments
-# - better logger
-# - treat the second extraction of emails, such as archiving deleted emails and
-#     not rewriting equal emails.
-# - detect bad e-mails and bad attachments
-# - save separated header and body
-#
-# Future related projects:
-# - Extract attachments to subdirectory
-# - Extract all parts
-#
-# Obs.: The complexity of the script stems from the fact that it creates a
-# small check if the default EMLs tab within MBOX is valid. As far as I can
-# tell, Thuderbird himself takes care of this, but I think it's best not to
-# assume that everything is ok.
-#
-# History
-# Version 0.1.4 2017-06-27
-# . No dolar in eml name
-#
-# Version 0.1.3 2017-06-27
-# . Clean Mozilla tags
-# . remove old code
-#
-# Version 0.1.2 2017-06-27
-# . Rewrite using class
-# . Bug in detecting message id
-# . Logger
-# . Evolving
-# . Mantein old code for comparison
-#
-# Version 0.1.1 2017-06-26
-# . Much mo more tests (same plataform)
-# . Sane "eml" file name
-# . Evolving header regex
-#
-# Version 0.1 2017-04-11 (C) Anselmo Blanco Dominguez (Oxigenai)
-# . First version
-
 import os
 import sys
 import re
@@ -66,15 +8,7 @@ import re
 import gettext
 
 from oxy.arg import parse as argparse
-
-
-debug = 2
-
-
-def p(l, str, *arg, **argv):
-    global debug
-    if debug >= l:
-        print(' '*l, str, *arg, **argv)
+from oxy.verbose import VerboseOutput
 
 
 class Mbox():
@@ -84,6 +18,7 @@ class Mbox():
     COPY = 3
     END = 4
 
+    vOut = None
     state = NONE
     nLine = 0
     nLineLimit = 0
@@ -96,26 +31,33 @@ class Mbox():
 
     def __init__(self):
         self.parseArgs()
-        p(3, '>__init__')
+        self.vOut = VerboseOutput(self.args.verbosity)
+        self.vOut.prnt('->... __init__', 4)
+
+        self.openMbox()
+
+    def __del__(self):
+        if self.vOut is not None:
+            self.vOut.prnt('->__del__', 4)
+        if self.mbox is not None:
+            self.mbox.close()
+
+    def openMbox(self):
+        self.vOut.prnt('->openMbox', 4)
         try:
             self.mbox = open(self.args.mboxFile, 'r', encoding="latin-1")
         except Exception as e:
-            p(0, 'Can not open mbox file to read "{}"'.format(
-                self.args.mboxFile))
+            self.vOut.prnt('Can not open mbox file to read "{}"'.format(
+                self.args.mboxFile), 0)
             sys.exit(21)
-        p(2, 'mbox file = {}'.format(self.args.mboxFile))
-        p(2, 'mbox file opened')
+        self.vOut.prnt('mbox file = {}'.format(self.args.mboxFile), 1)
+        self.vOut.prnt('mbox file opened', 1)
         self.mailDir = '{}.__mb2e__'.format(self.args.mboxFile)
-        p(2, 'mailDir = {}'.format(self.mailDir))
+        self.vOut.prnt('mailDir = {}'.format(self.mailDir), 1)
         self.setState(self.READ)
 
-    def __del__(self):
-        p(3, '>__del__')
-        if self.mbox:
-            self.mbox.close()
-
     def initEml(self):
-        p(3, '>initEml')
+        self.vOut.prnt('->initEml', 4)
         if not self.eml:
             if not os.path.isdir(self.mailDir):
                 os.mkdir(self.mailDir)
@@ -134,15 +76,15 @@ class Mbox():
                                    for c in mailName
                                    ).rstrip()
             mailFileName = os.path.join(self.mailDir, mailFileName)
-            p(2, 'eml file = {}'.format(mailFileName))
+            self.vOut.prnt('eml file = {}'.format(mailFileName), 2)
             try:
                 self.eml = open(mailFileName, 'w')
             except Exception as e:
-                p(0, 'Can not open mail file to write "{}"'.format(
-                    mailFileName))
+                self.vOut.prnt('Can not open mail file to write "{}"'.format(
+                    mailFileName), 0)
 
     def endEml(self):
-        p(3, '>endEml')
+        self.vOut.prnt('->endEml', 4)
         self.eml.close()
         self.eml = None
 
@@ -150,16 +92,16 @@ class Mbox():
         return self.line.strip('\n')
 
     def extract(self):
-        p(3, '>extract')
+        self.vOut.prnt('->extract', 4)
         for self.line in self.mbox:
             self.nLine += 1
             if self.nLineLimit > 0 and self.nLine > self.nLineLimit:
                 self.setState(self.END)
                 break
             line = self.cleanLine()
-            p(4, 'extract nLine = {}; line = "{}"{}'.format(
+            self.vOut.prnt('extract nLine = {}; line = "{}"{}'.format(
                 self.nLine, line[:30],
-                '...' if line[30:] else ''))
+                '...' if line[30:] else ''), 4)
             self.processLine()
 
     def headerLine(self):
@@ -178,8 +120,8 @@ class Mbox():
                 re.search('^From $', line)
                 or re.search('^From - ... ... .. ..:..:.. ....$', line)
                 )
-            p(3, 'isIniHeader line = "{}" = {}'.format(
-                line[:20], result))
+            self.vOut.prnt('isIniHeader line = "{}" = {}'.format(
+                line[:20], result), 3)
             return result
 
         def isInsideHeader():
@@ -188,88 +130,91 @@ class Mbox():
                 re.search('^[^ ]+: .*$', line)
                 or re.search('^\s+[^ ].*$', line)
                 )
-            p(3, 'isInsideHeader line = "{}" = {}'.format(
-                line[:20], result))
+            self.vOut.prnt('isInsideHeader line = "{}" = {}'.format(
+                line[:20], result), 3)
             return result
 
         def ifGetMessageId():
             line = self.cleanLine()
-            p(3, 'ifGetMessageId')
+            self.vOut.prnt('ifGetMessageId', 3)
             reMsgId = re.search('^Message-I[dD]: <(.*)>', line)
             if reMsgId is not None:
                 self.msgId = reMsgId.group(1)
-                p(3, 'ifGetMessageId line = "{}"; self.msgId = "{}"'
-                    .format(line[:20], self.msgId))
+                self.vOut.prnt(
+                    'ifGetMessageId line = "{}"; self.msgId = "{}"'
+                    .format(line[:20], self.msgId), 3)
 
         def isEndHeader():
             line = self.cleanLine()
             result = bool(re.search('^ *$', line))
-            p(3, 'isEndHeader line = "{}" = {}'.format(
-                line[:20], result))
+            self.vOut.prnt('isEndHeader line = "{}" = {}'.format(
+                line[:20], result), 3)
             return result
 
-        p(3, '>processLine')
+        self.vOut.prnt('->processLine', 4)
         if self.state in (self.READ, self.COPY):
-            p(4, 'processLine state == READ or COPY')
+            self.vOut.prnt('processLine state == READ or COPY', 4)
             if isIniHeader():
-                p(4, 'processLine isIniHeader')
+                self.vOut.prnt('processLine isIniHeader', 4)
                 self.setState(self.HEADERCANDIDATE)
                 # self.headerLine()
 
         elif self.state == self.HEADERCANDIDATE:
-            p(4, 'processLine state == HEADERCANDIDATE')
+            self.vOut.prnt('processLine state == HEADERCANDIDATE', 4)
             if isInsideHeader():
-                p(4, 'processLine isInsideHeader')
+                self.vOut.prnt('processLine isInsideHeader', 4)
                 ifGetMessageId()
                 self.headerLine()
             else:
-                p(4, 'processLine not isInsideHeader')
+                self.vOut.prnt('processLine not isInsideHeader', 4)
                 if isEndHeader() and len(self.header) > 1:
-                    p(4, 'processLine isEndHeader and has header')
+                    self.vOut.prnt('processLine isEndHeader and has header', 4)
                     self.setState(self.COPY)
                 else:
-                    p(4, 'processLine not isEndHeader or hasn''t header')
+                    self.vOut.prnt(
+                        'processLine not isEndHeader or hasn''t header', 4)
                     self.setState(self.READ)
 
         if self.state == self.COPY:
-            p(4, 'processLine state == COPY')
+            self.vOut.prnt('processLine state == COPY', 4)
             self.eml.write(self.line)
 
     def setState(self, state):
         if self.state == state:
             return
         self.state = state
-        p(3, '>setState = {}'.format(self.state))
+        self.vOut.prnt('>setState = {}'.format(self.state), 3)
 
         if self.state == self.READ:
-            p(4, 'setState = READ')
+            self.vOut.prnt('setState = READ', 4)
             self.header = []
 
         if self.state == self.HEADERCANDIDATE:
-            p(4, 'setState = HEADERCANDIDATE')
+            self.vOut.prnt('setState = HEADERCANDIDATE', 4)
             self.msgId = None
 
         if self.state in (self.COPY, self.END):
-            p(4, 'setState = COPY or END')
+            self.vOut.prnt('setState = COPY or END', 4)
             if self.eml is not None:
-                p(4, 'setState - andEml')
+                self.vOut.prnt('setState - andEml', 4)
                 self.endEml()
-                p(4, 'self.eml = {}'.format(self.eml))
+                self.vOut.prnt('self.eml = {}'.format(self.eml), 4)
 
         if self.state == self.COPY:
-            p(4, 'setState = COPY')
-            p(4, 'setState - initEml')
+            self.vOut.prnt('setState = COPY', 4)
+            self.vOut.prnt('setState - initEml', 4)
             self.initEml()
-            p(4, 'setState - for self.header')
+            self.vOut.prnt('setState - for self.header', 4)
             for headerLine in self.header:
                 self.eml.write(headerLine)
-            p(4, 'setState - empty self.header')
+            self.vOut.prnt('setState - empty self.header', 4)
             self.header = []
 
     def parseArgs(self):
         parser = argparse.ArgumentParser(
             description=_('Extract EML files from MBox to subdirectory'),
-            epilog="(c) Tussor & Oxigenai",
+            epilog="# Version 0.1.5 2017-06-28 "
+                   "(c) Anselmo Blanco Dominguez (Tussor & Oxigenai)",
             formatter_class=argparse.RawTextHelpFormatter)
         parser.add_argument(
             "mboxFile",
@@ -290,6 +235,6 @@ if __name__ == '__main__':
 
     mbox = Mbox()
     # mbox.nLineLimit = 10000000
-    # p(1, 'mbox.nLineLimit = {}'.format(mbox.nLineLimit))
+    # self.vOut.prnt('mbox.nLineLimit = {}'.format(mbox.nLineLimit), 1)
 
     mbox.extract()
